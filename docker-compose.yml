@@ -1,0 +1,66 @@
+version: '3'
+
+services:
+  spark-master:
+    image: bitnami/spark:3.4.1-debian-11-r0
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/spark-history
+    volumes:
+      - ./logs:/opt/bitnami/spark/logs
+      - ./data:/opt/bitnami/spark/data  # Shared data directory
+      - ./notebooks:/home/jovyan/work  # Jupyter notebooks directory
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    networks:
+      - spark-net
+
+  spark-worker:
+    image: bitnami/spark:3.4.1-debian-11-r0
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://spark-master:7077
+    volumes:
+      - ./data:/opt/bitnami/spark/data  # Shared data directory
+    networks:
+      - spark-net
+    depends_on:
+      - spark-master
+
+  spark-worker-2:
+    image: bitnami/spark:3.4.1-debian-11-r0
+    container_name: spark-worker-2
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://spark-master:7077
+    volumes:
+      - ./data:/opt/bitnami/spark/data  # Shared data directory
+    networks:
+      - spark-net
+    depends_on:
+      - spark-master
+
+  jupyter:
+    build: .
+    container_name: jupyter-notebook
+    environment:
+      - PYSPARK_DRIVER_PYTHON=jupyter
+      - PYSPARK_DRIVER_PYTHON_OPTS=notebook
+      - SPARK_MASTER=spark://spark-master:7077
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/data  # Access to Spark data
+    networks:
+      - spark-net
+    depends_on:
+      - spark-master
+
+networks:
+  spark-net:
+    driver: bridge
